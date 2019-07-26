@@ -16,7 +16,7 @@ type Controller struct {
 	stopChan chan bool
 }
 
-func init() {
+func Register() {
 	edgeController := Controller{}
 	core.Register(&edgeController)
 }

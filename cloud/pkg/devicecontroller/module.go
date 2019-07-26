@@ -17,7 +17,7 @@ type DeviceController struct {
 	stopChan chan bool
 }
 
-func init() {
+func Register() {
 	deviceController := DeviceController{}
 	core.Register(&deviceController)
 }

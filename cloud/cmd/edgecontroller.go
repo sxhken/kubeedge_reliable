@@ -1,13 +1,19 @@
 package main
 
 import (
-	_ "github.com/kubeedge/kubeedge/cloud/pkg/cloudhub"
-	_ "github.com/kubeedge/kubeedge/cloud/pkg/controller"
-	_ "github.com/kubeedge/kubeedge/cloud/pkg/devicecontroller"
+	"os"
 
-	"github.com/kubeedge/beehive/pkg/core"
+	"k8s.io/klog"
+
+	"github.com/kubeedge/kubeedge/cloud/cmd/app"
 )
 
 func main() {
-	core.Run()
+	command := app.NewEdgeControllerCommand()
+
+	klog.InitFlags(nil)
+
+	if err := command.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

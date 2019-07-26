@@ -19,7 +19,7 @@ type cloudHub struct {
 	stopChan chan bool
 }
 
-func init() {
+func Register() {
 	core.Register(&cloudHub{})
 }
 
