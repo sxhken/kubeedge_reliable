@@ -17,7 +17,15 @@ const (
 	MetaManagerModuleName = "metaManager"
 )
 
-func init() {
+var (
+	Connected = false
+	// SendModuleGroupName is the name of the group to which we send the message
+	SendModuleGroupName = modules.HubGroup
+	// SendModuleName is the name of send module for remote query
+	SendModuleName = "websocket"
+)
+
+func Register() {
 	dbm.RegisterModel(MetaManagerModuleName, new(dao.Meta))
 	core.Register(&metaManager{})
 }
@@ -37,6 +45,8 @@ func (*metaManager) Group() string {
 func (m *metaManager) Start(c *context.Context) {
 	m.context = c
 
+	iniConfig()
+
 	go func() {
 		period := getSyncInterval()
 		timer := time.NewTimer(period)
@@ -50,6 +60,24 @@ func (m *metaManager) Start(c *context.Context) {
 		}
 	}()
 	m.mainLoop()
+}
+
+func iniConfig() {
+	var err error
+	groupName, err := config.CONFIG.GetValue("metamanager.context-send-group").ToString()
+	if err == nil && groupName != "" {
+		SendModuleGroupName = groupName
+	}
+
+	edgeSite, err := config.CONFIG.GetValue("metamanager.edgesite").ToBool()
+	if err == nil && edgeSite == true {
+		Connected = true
+	}
+
+	moduleName, err := config.CONFIG.GetValue("metamanager.context-send-module").ToString()
+	if err == nil && moduleName != "" {
+		SendModuleName = moduleName
+	}
 }
 
 func (m *metaManager) Cleanup() {

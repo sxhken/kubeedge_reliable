@@ -39,7 +39,7 @@ func RegisterModel(moduleName string, m interface{}) {
 	}
 }
 
-func init() {
+func initConfig() {
 	//Init DB info
 	driverName, _ = config.CONFIG.GetValue("database.driver").ToString()
 	dbName, _ = config.CONFIG.GetValue("database.name").ToString()
@@ -53,6 +53,11 @@ func init() {
 	if dataSource == "" {
 		dataSource = defaultDataSource
 	}
+}
+
+//InitDBManager initialises the database by syncing the database schema and creating orm
+func InitDBManager() {
+	initConfig()
 
 	if err := orm.RegisterDriver(driverName, orm.DRSqlite); err != nil {
 		log.LOGGER.Fatalf("Failed to register driver: %v", err)
@@ -60,10 +65,7 @@ func init() {
 	if err := orm.RegisterDataBase(dbName, driverName, dataSource); err != nil {
 		log.LOGGER.Fatalf("Failed to register db: %v", err)
 	}
-}
 
-//InitDBManager initialises the database by syncing the database schema and creating orm
-func InitDBManager() {
 	// sync database schema
 	orm.RunSyncdb(dbName, false, true)
 

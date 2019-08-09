@@ -37,32 +37,6 @@ const (
 	CloudControlerModel = "edgecontroller"
 )
 
-var connected = false
-
-// sendModuleGroupName is the name of the group to which we send the message
-var sendModuleGroupName = modules.HubGroup
-
-// sendModuleName is the name of send module for remote query
-var sendModuleName = "websocket"
-
-func init() {
-	var err error
-	groupName, err := config.CONFIG.GetValue("metamanager.context-send-group").ToString()
-	if err == nil && groupName != "" {
-		sendModuleGroupName = groupName
-	}
-
-	edgeSite, err := config.CONFIG.GetValue("metamanager.edgesite").ToBool()
-	if err == nil && edgeSite == true {
-		connected = true
-	}
-
-	moduleName, err := config.CONFIG.GetValue("metamanager.context-send-module").ToString()
-	if err == nil && moduleName != "" {
-		sendModuleName = moduleName
-	}
-}
-
 func feedbackError(err error, info string, request model.Message, c *context.Context) {
 	errInfo := "Something wrong"
 	if err != nil {
@@ -93,7 +67,7 @@ func send2EdgeMesh(message *model.Message, sync bool, c *context.Context) {
 }
 
 func send2Cloud(message *model.Message, c *context.Context) {
-	c.Send2Group(sendModuleGroupName, *message)
+	c.Send2Group(SendModuleGroupName, *message)
 }
 
 // Resource format: <namespace>/<restype>[/resid]
@@ -119,7 +93,7 @@ func requireRemoteQuery(resType string) bool {
 }
 
 func isConnected() bool {
-	return connected
+	return Connected
 }
 
 func msgDebugInfo(message *model.Message) string {
@@ -417,7 +391,7 @@ func (m *metaManager) processRemoteQuery(message model.Message) {
 		// TODO: retry
 		originalID := message.GetID()
 		message.UpdateID()
-		resp, err := m.context.SendSync(sendModuleName, message, 60*time.Second) // TODO: configurable
+		resp, err := m.context.SendSync(SendModuleName, message, 60*time.Second) // TODO: configurable
 		log.LOGGER.Infof("########## process get: req[%+v], resp[%+v], err[%+v]", message, resp, err)
 		if err != nil {
 			log.LOGGER.Errorf("remote query failed: %v", err)
@@ -460,9 +434,9 @@ func (m *metaManager) processNodeConnection(message model.Message) {
 	content, _ := message.GetContent().(string)
 	log.LOGGER.Infof("node connection event occur: %s", content)
 	if content == connect.CloudConnected {
-		connected = true
+		Connected = true
 	} else if content == connect.CloudDisconnected {
-		connected = false
+		Connected = false
 	}
 }
 
