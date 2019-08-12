@@ -1,8 +1,15 @@
 # make cloud part
 
-.PHONY: default cloudcore test
+.PHONY: default cloudcore admission test
+
+default: cloudcore admission
+
 cloudcore:
 	go build cmd/cloudcore/cloudcore.go
+
+admission:
+	go build cmd/admission/admission.go
+
 lint:
 	golangci-lint run --disable-all -E gofmt -E golint --deadline '10m' ./...
 	go vet ./...
