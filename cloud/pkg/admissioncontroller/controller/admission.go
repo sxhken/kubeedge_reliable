@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/kubeedge/kubeedge/cloud/pkg/admissioncontroller/config"
 	"github.com/kubeedge/kubeedge/cloud/pkg/admissioncontroller/constants"
 	"github.com/kubeedge/kubeedge/cloud/pkg/admissioncontroller/utils"
 	devicesv1alpha1 "github.com/kubeedge/kubeedge/cloud/pkg/apis/devices/v1alpha1"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"k8s.io/utils/pointer"
 )
@@ -48,15 +50,24 @@ type AdmissionController struct {
 
 func strPtr(s string) *string { return &s }
 
-// Start starts the webhook service
-func (ac *AdmissionController) Start(context *utils.CertContext) {
+// Run starts the webhook service
+func (ac *AdmissionController) Run() {
+	cli, err := createKubeClient()
+	if err != nil {
+		klog.Fatalf("Create kube client failed with error: %v", err)
+	}
+	ac.Client = cli
+
+	certContext := utils.SetupServerCert(constants.NamespaceName, constants.ServiceName)
+
 	//TODO: read somewhere to get what's kind of webhook is enabled, register those webhook only.
-	err := ac.registerWebhookForDeviceModel(constants.WebhookNameDeviceModel, context)
+	err = ac.registerWebhookForDeviceModel(constants.WebhookNameDeviceModel, certContext)
 	if err != nil {
 		klog.Fatalf("Failed to register the webhook with error: %v", err)
 	}
 	ac.deployService()
-	tlsConfig := utils.ConfigTLS(context)
+
+	tlsConfig := utils.ConfigTLS(certContext)
 	http.HandleFunc("/devicemodels", serveDeviceModel)
 	server := &http.Server{
 		Addr:      fmt.Sprintf(":%v", constants.Port),
@@ -64,6 +75,15 @@ func (ac *AdmissionController) Start(context *utils.CertContext) {
 	}
 
 	server.ListenAndServeTLS("", "")
+}
+
+// createKubeClient creates KubeClient
+func createKubeClient() (*kubernetes.Clientset, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(config.Kube.KubeMaster, config.Kube.KubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(kubeConfig)
 }
 
 // Register registers the admission webhook.
