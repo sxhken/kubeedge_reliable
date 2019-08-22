@@ -1,4 +1,4 @@
-package controller
+package admissioncontroller
 
 import (
 	"encoding/json"
@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kubeedge/kubeedge/cloud/pkg/admissioncontroller/config"
-	"github.com/kubeedge/kubeedge/cloud/pkg/admissioncontroller/constants"
-	"github.com/kubeedge/kubeedge/cloud/pkg/admissioncontroller/utils"
+	"github.com/kubeedge/kubeedge/cloud/cmd/admission/app/options"
 	devicesv1alpha1 "github.com/kubeedge/kubeedge/cloud/pkg/apis/devices/v1alpha1"
 	devivicecontrollerutils "github.com/kubeedge/kubeedge/cloud/pkg/devicecontroller/utils"
 
@@ -51,11 +49,13 @@ type AdmissionController struct {
 func strPtr(s string) *string { return &s }
 
 // Run starts the webhook service
-func (ac *AdmissionController) Run() {
-	cli, err := createKubeClient()
+func Run(config *options.Config) {
+	cli, err := createKubeClient(config.Master, config.Kubeconfig)
 	if err != nil {
 		klog.Fatalf("Create kube client failed with error: %v", err)
 	}
+
+	ac := AdmissionController{}
 	ac.Client = cli
 
 	certContext := utils.SetupServerCert(constants.NamespaceName, constants.ServiceName)
@@ -78,8 +78,8 @@ func (ac *AdmissionController) Run() {
 }
 
 // createKubeClient creates KubeClient
-func createKubeClient() (*kubernetes.Clientset, error) {
-	kubeConfig, err := clientcmd.BuildConfigFromFlags(config.Kube.KubeMaster, config.Kube.KubeConfig)
+func createKubeClient(master, kubeConfig string) (*kubernetes.Clientset, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(master, kubeConfig)
 	if err != nil {
 		return nil, err
 	}
