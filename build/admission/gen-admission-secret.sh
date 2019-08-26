@@ -14,7 +14,7 @@ if [[ ! -x "$(command -v openssl)" ]]; then
 fi
 
 csrName=${SERVICE}.${NAMESPACE}
-mkdir -p ${SERVICE}
+mkdir -p ${CERTDIR}
 echo "creating certs in dir ${CERTDIR} "
 
 cat <<EOF > ${CERTDIR}/csr.conf
