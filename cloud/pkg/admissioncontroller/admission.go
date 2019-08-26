@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	ValidateDeviceModel = "validate-devicemodel"
+	ValidateDeviceModelConfigName  = "validate-devicemodel"
+	ValidateDeviceModelWebhookName = "validatedevicemodel.kubeedge.io"
 )
 
 var scheme = runtime.NewScheme()
@@ -134,11 +135,11 @@ func configTLS(config *options.Config, restConfig *restclient.Config) *tls.Confi
 func (ac *AdmissionController) registerWebhooks(c *options.Config, cabundle []byte) error {
 	deviceModelCRDWebhook := admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ValidateDeviceModel,
+			Name: ValidateDeviceModelConfigName,
 		},
 		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 			{
-				Name: ValidateDeviceModel,
+				Name: ValidateDeviceModelWebhookName,
 				Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 					Operations: []admissionregistrationv1beta1.OperationType{
 						admissionregistrationv1beta1.Create,
@@ -178,12 +179,12 @@ func registerValidateWebhook(client admissionregistrationv1beta1client.Validatin
 		}
 		if err == nil && existing != nil {
 			existing.Webhooks = hook.Webhooks
-			klog.Infof("Updating ValidatingWebhookConfiguration %v", hook)
+			klog.Infof("Updating ValidatingWebhookConfiguration: %v", hook.Name)
 			if _, err := client.Update(existing); err != nil {
 				return err
 			}
 		} else {
-			klog.Infof("Creating ValidatingWebhookConfiguration %v", hook)
+			klog.Infof("Creating ValidatingWebhookConfiguration: %v", hook.Name)
 			if _, err := client.Create(&hook); err != nil {
 				return err
 			}
