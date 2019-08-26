@@ -101,7 +101,7 @@ cloudimage:
 	docker build -t kubeedge/cloudcore:${IMAGE_TAG} -f build/cloud/Dockerfile .
 
 .PHONY: admissionimage
-cloudimage:
+admissionimage:
 	docker build -t kubeedge/admission:${IMAGE_TAG} -f build/admission/Dockerfile .
 
 .PHONY: edgeimage
