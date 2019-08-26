@@ -153,8 +153,8 @@ func (ac *AdmissionController) registerWebhooks(c *options.Config, cabundle []by
 				}},
 				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 					Service: &admissionregistrationv1beta1.ServiceReference{
-						Namespace: c.AdmissionServiceName,
-						Name:      c.AdmissionServiceNamespace,
+						Namespace: c.AdmissionServiceNamespace,
+						Name:      c.AdmissionServiceName,
 						Path:      strPtr("/devicemodels"),
 					},
 					CABundle: cabundle,
