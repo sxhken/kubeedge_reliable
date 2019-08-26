@@ -83,10 +83,8 @@ echo ${serverCert} | openssl base64 -d -A -out ${CERTDIR}/server-cert.pem
 kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' > ${CERTDIR}/ca-cert.pem
 
 if [[ "${ENABLE_CREATE_SECRET}" = true ]]; then
-    kubectl get ns ${NAMESPACE}
-    if [ "$?" -eq 0 ]; then
-        kubectl create ns ${NAMESPACE}
-    fi
+    kubectl get ns ${NAMESPACE} || kubectl create ns ${NAMESPACE}
+
     # create the secret with CA cert and server cert/key
     kubectl create secret generic ${SECRET} \
         --from-file=tls.key=${CERTDIR}/server-key.pem \
