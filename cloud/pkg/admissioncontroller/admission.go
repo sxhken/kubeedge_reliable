@@ -112,7 +112,8 @@ func configTLS(config *options.Config, restConfig *restclient.Config) *tls.Confi
 		}
 
 		return &tls.Config{
-			Certificates: []tls.Certificate{sCert},
+			Certificates:       []tls.Certificate{sCert},
+			InsecureSkipVerify: true,
 		}
 	}
 
@@ -133,6 +134,7 @@ func configTLS(config *options.Config, restConfig *restclient.Config) *tls.Confi
 
 // Register registers the admission webhook.
 func (ac *AdmissionController) registerWebhooks(c *options.Config, cabundle []byte) error {
+	ignorePolicy := admissionregistrationv1beta1.Ignore
 	deviceModelCRDWebhook := admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ValidateDeviceModelConfigName,
@@ -159,6 +161,7 @@ func (ac *AdmissionController) registerWebhooks(c *options.Config, cabundle []by
 					},
 					CABundle: cabundle,
 				},
+				FailurePolicy: &ignorePolicy,
 			},
 		},
 	}
