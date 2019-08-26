@@ -9,3 +9,5 @@ github.com/kubeedge/kubeedge/cloud/cmd/admission
 FROM alpine:3.9
 
 COPY --from=builder /usr/local/bin/admission /usr/local/bin/admission
+
+ENTRYPOINT ["admission"]

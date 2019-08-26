@@ -27,7 +27,7 @@ spec:
             - --port=443
             - -v=4
             - 2>&1
-          image: kubeedge/kubeedge-admission:latest
+          image: kubeedge/admission:latest
           imagePullPolicy: IfNotPresent
           name: admission
           volumeMounts:
