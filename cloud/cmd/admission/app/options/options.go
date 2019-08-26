@@ -33,6 +33,6 @@ func (c *Config) AddFlags(flag *flag.FlagSet) {
 	flag.StringVar(&c.KeyFile, "tls-private-key-file", c.KeyFile, "File containing the default x509 private key matching --tls-cert-file.")
 	flag.StringVar(&c.CaCertFile, "ca-cert-file", c.CaCertFile, "File containing the x509 Certificate for HTTPS.")
 	flag.IntVar(&c.Port, "port", 443, "the port used by admission-controller-server.")
-	flag.StringVar(&c.AdmissionServiceNamespace, "webhook-namespace", "default", "The namespace of this webhook")
+	flag.StringVar(&c.AdmissionServiceNamespace, "webhook-namespace", "kubeedge", "The namespace of this webhook")
 	flag.StringVar(&c.AdmissionServiceName, "webhook-service-name", "kubeedge-admission-service", "The name of this admission service")
 }

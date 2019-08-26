@@ -24,6 +24,10 @@ import (
 	"k8s.io/klog"
 )
 
+const (
+	ValidateDeviceModel = "validate-devicemodel"
+)
+
 var scheme = runtime.NewScheme()
 
 //Codecs is for retrieving serializers for the supported wire formats
@@ -130,11 +134,11 @@ func configTLS(config *options.Config, restConfig *restclient.Config) *tls.Confi
 func (ac *AdmissionController) registerWebhooks(c *options.Config, cabundle []byte) error {
 	deviceModelCRDWebhook := admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "",
+			Name: ValidateDeviceModel,
 		},
 		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 			{
-				Name: "",
+				Name: ValidateDeviceModel,
 				Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 					Operations: []admissionregistrationv1beta1.OperationType{
 						admissionregistrationv1beta1.Create,
