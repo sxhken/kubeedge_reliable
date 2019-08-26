@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/kubeedge/kubeedge/cloud/cmd/admission/app/options"
-	devivicecontrollerutils "github.com/kubeedge/kubeedge/cloud/pkg/devicecontroller/utils"
+	"github.com/kubeedge/kubeedge/cloud/pkg/apis/devices/v1alpha1"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -38,7 +38,19 @@ func addToScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(admissionv1beta1.AddToScheme(scheme))
 	utilruntime.Must(admissionregistrationv1beta1.AddToScheme(scheme))
-	utilruntime.Must(devivicecontrollerutils.AddDeviceCrds(scheme))
+	utilruntime.Must(addDeviceCrds(scheme))
+}
+
+// TODO: move this func to apis/devices/v1alpha1/register.go
+func addDeviceCrds(scheme *runtime.Scheme) error {
+	// Add Device
+	scheme.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.Device{}, &v1alpha1.DeviceList{})
+	metav1.AddToGroupVersion(scheme, v1alpha1.SchemeGroupVersion)
+	// Add DeviceModel
+	scheme.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.DeviceModel{}, &v1alpha1.DeviceModelList{})
+	metav1.AddToGroupVersion(scheme, v1alpha1.SchemeGroupVersion)
+
+	return nil
 }
 
 // AdmissionController implements the admission webhook for validation of configuration.
