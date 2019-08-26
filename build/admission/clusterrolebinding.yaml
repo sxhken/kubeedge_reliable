@@ -2,11 +2,10 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kubeedge-admission-role
-  namespace: kubeedge
 subjects:
   - kind: ServiceAccount
     name: kubeedge-admission
-    namespace: kubeedge-system
+    namespace: kubeedge
 roleRef:
   kind: ClusterRole
   name: kubeedge-admission
