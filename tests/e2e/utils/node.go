@@ -209,14 +209,15 @@ func GetConfigmap(apiConfigMap string) (int, []byte) {
 }
 
 //DeleteConfigmap function to delete configmaps
-func DeleteConfigmap(apiConfigMap string) int {
-	err, resp := SendHttpRequest(http.MethodDelete, apiConfigMap)
+func DeleteConfigmap(kubeconfig, resource, namespace, name string) int {
+	result, err := SendHttpRequest(http.MethodDelete, kubeconfig, resource, namespace, name)
 	if err != nil {
 		Fatalf("Sending SenHttpRequest failed: %v", err)
 		return -1
 	}
-	defer resp.Body.Close()
-	return resp.StatusCode
+	var statusCode *int
+	result.StatusCode(statusCode)
+	return *statusCode
 }
 
 func TaintEdgeDeployedNode(toTaint bool, taintHandler string) error {

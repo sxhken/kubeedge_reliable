@@ -22,6 +22,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 //Test context struct
@@ -37,27 +41,32 @@ func NewTestContext(cfg Config) *TestContext {
 }
 
 //SendHttpRequest Function to prepare the http req and send
-func SendHttpRequest(method, reqApi string) (error, *http.Response) {
-	var body io.Reader
-	var resp *http.Response
-
-	client := &http.Client{}
-	req, err := http.NewRequest(method, reqApi, body)
+func SendHttpRequest(method, kubeconfig, resource, namespace, name string) (*rest.Result, error) {
+	// use the current context in kubeconfig
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		// handle error
-		Fatalf("Frame HTTP request failed: %v", err)
-		return err, resp
+		panic(err.Error())
 	}
-	req.Header.Set("Content-Type", "application/json")
-	t := time.Now()
-	resp, err = client.Do(req)
-	if err != nil {
+	clientset := kubernetes.NewForConfigOrDie(config)
+
+	result := rest.Result{}
+	if method == http.MethodGet {
+		result = clientset.RESTClient().Delete().Resource(resource).Namespace(namespace).Name(name).Do()
+	} else if method == http.MethodDelete {
+		result = clientset.RESTClient().Get().Resource(resource).Namespace(namespace).Name(name).Do()
+	}
+
+	if result.Error() != nil {
 		// handle error
 		Fatalf("HTTP request is failed :%v", err)
-		return err, resp
+		return nil, err
 	}
-	Infof("%s %s %v in %v", req.Method, req.URL, resp.Status, time.Now().Sub(t))
-	return nil, resp
+
+	var statusCode *int
+	result.StatusCode(statusCode)
+
+	Infof("HTTP request is successful: %s %s %v", method, resource, statusCode)
+	return &result, nil
 }
 
 //MapLabels function add label selector

@@ -31,7 +31,7 @@ import (
 func CreateDeploymentTest(replica int, deplName, nodeName, nodeSelector string, ctx *utils.TestContext) metav1.PodList {
 	var deploymentList v1.DeploymentList
 	var podlist metav1.PodList
-	IsAppDeployed := utils.HandleDeployment(false, false, http.MethodPost, ctx.Cfg.K8SMasterForKubeEdge+constants.DeploymentHandler, deplName, ctx.Cfg.AppImageUrl[1], nodeSelector, "", replica)
+	IsAppDeployed := utils.HandleDeployment(false, false, http.MethodPost, ctx.Cfg.K8SMasterForKubeEdge, metav1.NamespaceDefault, deplName, ctx.Cfg.AppImageUrl[1], nodeSelector, "", replica)
 	Expect(IsAppDeployed).Should(BeTrue())
 	err := utils.GetDeployments(&deploymentList, ctx.Cfg.K8SMasterForKubeEdge+constants.DeploymentHandler)
 	Expect(err).To(BeNil())

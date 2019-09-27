@@ -22,7 +22,6 @@ compilemodule=$1
 runtest=$2
 debugflag="-test.v -ginkgo.v"
 
-export MASTER_IP=121.244.95.60
 #setup env
 cd ../
 #Pre-configurations required for running the suite.
@@ -30,10 +29,9 @@ cd ../
 cat >config.json<<END
 {
         "image_url": ["nginx", "hello-world"],
-        "k8smasterforkubeedge":"http://$MASTER_IP:12418",
-         "dockerhubusername":"user",
-         "dockerhubpassword":"password",
-         "mqttendpoint":"tcp://127.0.0.1:1884"
+        "dockerhubusername":"user",
+        "dockerhubpassword":"password",
+        "mqttendpoint":"tcp://127.0.0.1:1884"
 }
 END
 

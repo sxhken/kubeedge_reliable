@@ -317,7 +317,7 @@ var _ = Describe("Device Management test in E2E scenario", func() {
 			Expect(isEqual).Should(Equal(true))
 		})
 		It("E2E_CREATE_DEVICE_4: Create device instance for incorrect device instance", func() {
-			statusCode := utils.DeleteConfigmap(ctx.Cfg.K8SMasterForKubeEdge + ConfigmapHandler + "/" + "device-profile-config-" + NodeName)
+			statusCode := utils.DeleteConfigmap(ctx.Cfg.K8SMasterForKubeEdge, "configmaps", v1.NamespaceDefault, "device-profile-config-"+NodeName)
 			Expect(statusCode == http.StatusOK || statusCode == http.StatusNotFound).Should(Equal(true))
 			IsDeviceModelCreated, statusCode := utils.HandleDeviceModel(http.MethodPost, ctx.Cfg.K8SMasterForKubeEdge+DeviceModelHandler, "", "led")
 			Expect(IsDeviceModelCreated).Should(BeTrue())

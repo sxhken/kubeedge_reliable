@@ -37,6 +37,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubeedge/kubeedge/cloud/pkg/apis/devices/v1alpha1"
 	"github.com/kubeedge/viaduct/pkg/api"
@@ -351,13 +354,17 @@ func HandlePod(operation string, apiserver string, UID string, ImageUrl, nodesel
 }
 
 // HandleDeployment to handle app deployment/delete deployment.
-func HandleDeployment(IsCloudCore, IsEdgeCore bool, operation, apiserver, UID, ImageUrl, nodeselector, configmapname string, replica int) bool {
-	var req *http.Request
-	var err error
-	var body io.Reader
-
+func HandleDeployment(IsCloudCore, IsEdgeCore bool, operation, kubeconfig, namespace, UID, ImageUrl, nodeselector, configmapname string, replica int) bool {
 	defer ginkgo.GinkgoRecover()
-	client := &http.Client{}
+	// use the current context in kubeconfig
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		panic(err.Error())
+	}
+	clientset := kubernetes.NewForConfigOrDie(config)
+
+	result := rest.Result{}
+
 	switch operation {
 	case "POST":
 		depObj := newDeployment(IsCloudCore, IsEdgeCore, UID, ImageUrl, nodeselector, configmapname, replica)
@@ -368,24 +375,19 @@ func HandleDeployment(IsCloudCore, IsEdgeCore bool, operation, apiserver, UID, I
 		if err != nil {
 			Fatalf("Marshalling body failed: %v", err)
 		}
-		req, err = http.NewRequest(http.MethodPost, apiserver, bytes.NewBuffer(respBytes))
+		result = clientset.RESTClient().Post().Resource("deployments").Namespace(namespace).Name(UID).Body(respBytes).Do()
 	case "DELETE":
-		req, err = http.NewRequest(http.MethodDelete, apiserver+UID, body)
+		result = clientset.RESTClient().Delete().Resource("deployments").Namespace(namespace).Name(UID).Do()
 	}
-	if err != nil {
+
+	if result.Error() != nil {
 		// handle error
-		Fatalf("Frame HTTP request failed: %v", err)
+		Fatalf("HTTP request is failed: %v", result.Error())
 		return false
 	}
-	req.Header.Set("Content-Type", "application/json")
-	t := time.Now()
-	resp, err := client.Do(req)
-	if err != nil {
-		// handle error
-		Fatalf("HTTP request is failed :%v", err)
-		return false
-	}
-	Infof("%s %s %v in %v", req.Method, req.URL, resp.Status, time.Now().Sub(t))
+	var statusCode *int
+	result.StatusCode(statusCode)
+	Infof("The http request is successful: %s %s %v", operation, "deployments", statusCode)
 	return true
 }
 

@@ -36,7 +36,7 @@ go get github.com/onsi/ginkgo/ginkgo
 sudo cp $GOPATH/bin/ginkgo /usr/bin/
 # Specify the module name to compile in below command
 bash -x $PWD/scripts/compile.sh $1
-export MASTER_IP=121.244.95.60
+
 :> /tmp/testcase.log
 bash -x ${PWD}/scripts/fast_test.sh $1
 #stop the edgecore after the test completion
