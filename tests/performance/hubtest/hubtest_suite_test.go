@@ -92,11 +92,11 @@ func TestKubeEdgeK8SDeployment(t *testing.T) {
 		time.Sleep(5 * time.Second)
 
 		// Create NodePort Service for KubeEdge Cloud Part
-		err = utils.ExposeCloudService(CloudCoreDeployment, ctx.Cfg.K8SMasterForKubeEdge+ServiceHandler)
+		err = utils.ExposeCloudService(CloudCoreDeployment, ctx.Cfg.K8SMasterForKubeEdge, ServiceHandler)
 		Expect(err).Should(BeNil())
 
 		// Get NodePort Service to access KubeEdge Cloud Part from KubeEdge Edge Nodes
-		wsPort, quicNodePort := utils.GetServicePort(CloudCoreDeployment, ctx.Cfg.K8SMasterForKubeEdge+ServiceHandler)
+		wsPort, quicNodePort := utils.GetServicePort(CloudCoreDeployment, ctx.Cfg.K8SMasterForKubeEdge, ServiceHandler)
 		quiccloudHubURL = fmt.Sprintf("%s:%d", cloudPartHostIP, quicNodePort)
 		wsscloudHubURL = fmt.Sprintf("wss://%s:%d", cloudPartHostIP, wsPort)
 		if IsQuicProtocol {

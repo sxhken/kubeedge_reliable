@@ -262,18 +262,6 @@ func TestMapperCharacteristics(t *testing.T) {
 		Expect(err).Should(BeNil())
 		Expect(resp.StatusCode).Should(Equal(http.StatusOK))
 
-		//Deregister the edge node from master
-		err = utils.DeRegisterNodeFromMaster(ctx.Cfg.K8SMasterForKubeEdge+nodeHandler, nodeName)
-		Expect(err).Should(BeNil())
-		Eventually(func() int {
-			statuscode := utils.CheckNodeDeleteStatus(ctx.Cfg.K8SMasterForKubeEdge+nodeHandler, nodeName)
-			utils.Infof("Node Name: %v, Node Statuscode: %v", nodeName, statuscode)
-			return statuscode
-		}, "60s", "4s").Should(Equal(http.StatusNotFound), "Node register to the k8s master is unsuccessfull !!")
-
-		Expect(utils.CleanUp("deployment")).Should(BeNil())
-		time.Sleep(2 * time.Second)
-
 		utils.Infof("Cleanup is Successfull !!")
 	})
 	RunSpecs(t, "Kubeedge Mapper Test Suite")

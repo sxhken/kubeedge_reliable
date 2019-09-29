@@ -292,16 +292,15 @@ func newPodObj(podName, imgUrl, nodeselector string) *v1.Pod {
 }
 
 // GetDeployments to get the deployments list
-func GetDeployments(list *apps.DeploymentList, getDeploymentApi string) error {
+func GetDeployments(list *apps.DeploymentList, kubeconfig, deployHandler string) error {
 
-	err, resp := SendHttpRequest(http.MethodGet, getDeploymentApi)
-	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
+	result, err := SendHttpRequest(http.MethodGet, kubeconfig, deployHandler)
 	if err != nil {
 		Fatalf("HTTP Response reading has failed: %v", err)
 		return err
 	}
-	err = json.Unmarshal(contents, &list)
+
+	err = result.Into(list)
 	if err != nil {
 		Fatalf("Unmarshal HTTP Response has failed: %v", err)
 		return err
@@ -392,17 +391,17 @@ func HandleDeployment(IsCloudCore, IsEdgeCore bool, operation, kubeconfig, names
 }
 
 // DeleteDeployment to delete deployment
-func DeleteDeployment(DeploymentApi, deploymentname string) int {
-	err, resp := SendHttpRequest(http.MethodDelete, DeploymentApi+"/"+deploymentname)
+func DeleteDeployment(kubeconfig, deploymentHandler, deploymentname string) int {
+	result, err := SendHttpRequest(http.MethodDelete, kubeconfig, deploymentHandler+"/"+deploymentname)
 	if err != nil {
 		// handle error
 		Fatalf("HTTP request is failed :%v", err)
 		return -1
 	}
 
-	defer resp.Body.Close()
-
-	return resp.StatusCode
+	var statusCode *int
+	result.StatusCode(statusCode)
+	return *statusCode
 }
 
 // PrintCombinedOutput to show the os command injuction in combined format

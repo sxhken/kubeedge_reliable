@@ -41,7 +41,7 @@ func NewTestContext(cfg Config) *TestContext {
 }
 
 //SendHttpRequest Function to prepare the http req and send
-func SendHttpRequest(method, kubeconfig, resource, namespace, name string) (*rest.Result, error) {
+func SendHttpRequest(method, kubeconfig, requestURI string) (*rest.Result, error) {
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -51,21 +51,21 @@ func SendHttpRequest(method, kubeconfig, resource, namespace, name string) (*res
 
 	result := rest.Result{}
 	if method == http.MethodGet {
-		result = clientset.RESTClient().Delete().Resource(resource).Namespace(namespace).Name(name).Do()
+		result = clientset.RESTClient().Get().RequestURI(requestURI).Do()
 	} else if method == http.MethodDelete {
-		result = clientset.RESTClient().Get().Resource(resource).Namespace(namespace).Name(name).Do()
+		result = clientset.RESTClient().Delete().RequestURI(requestURI).Do()
 	}
 
 	if result.Error() != nil {
 		// handle error
-		Fatalf("HTTP request is failed :%v", err)
-		return nil, err
+		Fatalf("HTTP request is failed :%v", result.Error())
+		return nil, result.Error()
 	}
 
 	var statusCode *int
 	result.StatusCode(statusCode)
 
-	Infof("HTTP request is successful: %s %s %v", method, resource, statusCode)
+	Infof("HTTP request is successful: %s %s %v", method, requestURI, statusCode)
 	return &result, nil
 }
 

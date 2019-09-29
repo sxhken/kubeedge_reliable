@@ -104,22 +104,16 @@ func RegisterNodeToMaster(UID, nodehandler, nodeselector string) error {
 }
 
 //CheckNodeReadyStatus function to get node status
-func CheckNodeReadyStatus(nodehandler, nodename string) string {
-	var node v1.Node
+func CheckNodeReadyStatus(kubeconfig, nodename string) string {
+	var node *v1.Node
 	var nodeStatus = "unknown"
-	err, resp := SendHttpRequest(http.MethodGet, nodehandler+"/"+nodename)
+	result, err := SendHttpRequest(http.MethodGet, kubeconfig, "nodes", "", nodename)
 	if err != nil {
 		Fatalf("Sending SenHttpRequest failed: %v", err)
 		return nodeStatus
 	}
-	defer resp.Body.Close()
 
-	contents, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		Fatalf("HTTP Response reading has failed: %v", err)
-		return nodeStatus
-	}
-	err = json.Unmarshal(contents, &node)
+	result.Into(node)
 	if err != nil {
 		Fatalf("Unmarshal HTTP Response has failed: %v", err)
 		return nodeStatus

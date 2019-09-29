@@ -44,7 +44,7 @@ func TestEdgecoreAppDeployment(t *testing.T) {
 
 		//Check node successfully registered or not
 		Eventually(func() string {
-			status := utils.CheckNodeReadyStatus(ctx.Cfg.K8SMasterForKubeEdge+constants.NodeHandler, nodeName)
+			status := utils.CheckNodeReadyStatus(ctx.Cfg.K8SMasterForKubeEdge, nodeName)
 			utils.Infof("Node Name: %v, Node Status: %v", nodeName, status)
 			return status
 		}, "60s", "4s").Should(Equal("Running"), "Node register to the k8s master is unsuccessfull !!")

@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -36,27 +37,22 @@ const (
 )
 
 //GetPods function to get the pods from Edged
-func GetPods(apiserver, label string) (v1.PodList, error) {
+func GetPods(kubeconfig, appHandler, nodename string) (v1.PodList, error) {
 	var pods v1.PodList
-	var resp *http.Response
 	var err error
+	var result *rest.Result
 
-	if len(label) > 0 {
-		err, resp = SendHttpRequest(http.MethodGet, apiserver+podLabelSelector+label)
+	if len(nodename) > 0 {
+		result, err = SendHttpRequest(http.MethodGet, kubeconfig, appHandler+podLabelSelector+nodename)
 	} else {
-		err, resp = SendHttpRequest(http.MethodGet, apiserver)
+		result, err = SendHttpRequest(http.MethodGet, kubeconfig, appHandler)
 	}
 	if err != nil {
 		Fatalf("Frame HTTP request failed: %v", err)
 		return pods, nil
 	}
-	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		Fatalf("HTTP Response reading has failed: %v", err)
-		return pods, nil
-	}
-	err = json.Unmarshal(contents, &pods)
+
+	result.Into(&pods)
 	if err != nil {
 		Fatalf("Unmarshal HTTP Response has failed: %v", err)
 		return pods, nil
@@ -65,52 +61,41 @@ func GetPods(apiserver, label string) (v1.PodList, error) {
 }
 
 //GetPodState function to get the pod status and response code
-func GetPodState(apiserver string) (string, int) {
+func GetPodState(kubeconfig, requestURI string) (string, int) {
 	var pod v1.Pod
 
-	err, resp := SendHttpRequest(http.MethodGet, apiserver)
+	result, err := SendHttpRequest(http.MethodGet, kubeconfig, requestURI)
 	if err != nil {
 		Fatalf("GetPodState :SenHttpRequest failed: %v", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNotFound {
-		contents, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			Fatalf("HTTP Response reading has failed: %v", err)
-		}
-		err = json.Unmarshal(contents, &pod)
-		if err != nil {
-			Fatalf("Unmarshal HTTP Response has failed: %v", err)
-		}
-		return string(pod.Status.Phase), resp.StatusCode
+	var statusCode *int
+	result.StatusCode(statusCode)
+
+	if *statusCode != http.StatusNotFound {
+		result.Into(&pod)
+		return string(pod.Status.Phase), *statusCode
 	}
 
-	return "", resp.StatusCode
+	return "", *statusCode
 }
 
 //DeletePods function to get the pod status and response code
-func DeletePods(apiserver string) (string, int) {
+func DeletePods(kubeconfig, podHandler string) (string, int) {
 	var pod v1.Pod
-	err, resp := SendHttpRequest(http.MethodDelete, apiserver)
+	result, err := SendHttpRequest(http.MethodDelete, kubeconfig, podHandler)
 	if err != nil {
 		Fatalf("GetPodState :SenHttpRequest failed: %v", err)
 	}
-	defer resp.Body.Close()
+	var statusCode *int
+	result.StatusCode(statusCode)
 
-	if resp.StatusCode != http.StatusNotFound {
-		contents, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			Fatalf("HTTP Response reading has failed: %v", err)
-		}
-		err = json.Unmarshal(contents, &pod)
-		if err != nil {
-			Fatalf("Unmarshal HTTP Response has failed: %v", err)
-		}
-		return string(pod.Status.Phase), resp.StatusCode
+	if *statusCode != http.StatusNotFound {
+		result.Into(&pod)
+		return string(pod.Status.Phase), *statusCode
 	}
 
-	return "", resp.StatusCode
+	return "", *statusCode
 }
 
 //CheckPodRunningState function to check the Pod state
@@ -130,7 +115,7 @@ func CheckPodRunningState(apiserver string, podlist v1.PodList) {
 }
 
 //CheckPodDeleteState function to check the Pod state
-func CheckPodDeleteState(apiserver string, podlist v1.PodList) {
+func CheckPodDeleteState(kubeconfig, podHandler string, podlist v1.PodList) {
 	var count int
 	//skip the edgecore/cloudcore deployment pods and count only application pods deployed on KubeEdge edgen node
 	for _, pod := range podlist.Items {
@@ -142,7 +127,7 @@ func CheckPodDeleteState(apiserver string, podlist v1.PodList) {
 	Eventually(func() int {
 		var count int
 		for _, pod := range podlist.Items {
-			status, statusCode := GetPodState(apiserver + "/" + pod.Name)
+			status, statusCode := GetPodState(kubeconfig, podHandler+"/"+pod.Name)
 			Infof("PodName: %s status: %s StatusCode: %d", pod.Name, status, statusCode)
 			if statusCode == 404 {
 				count++

@@ -151,7 +151,7 @@ func DeleteEdgeDeployments(apiServerForRegisterNode, apiServerForDeployments str
 	Eventually(func() int {
 		count := 0
 		for _, depName := range Deployments {
-			statusCode := utils.VerifyDeleteDeployment(apiServerForDeployments + DeploymentHandler + "/" + depName)
+			statusCode := utils.VerifyDeleteDeployment(apiServerForDeployments, depName)
 			if statusCode == 404 {
 				count++
 			}
