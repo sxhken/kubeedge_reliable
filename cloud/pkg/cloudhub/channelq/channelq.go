@@ -2,6 +2,7 @@ package channelq
 
 import (
 	"fmt"
+	"k8s.io/client-go/util/workqueue"
 	"strings"
 	"sync"
 
@@ -51,7 +52,7 @@ func (s *ChannelMessageSet) Get() (*beehiveModel.Message, error) {
 
 // ChannelMessageQueue is the channel implementation of MessageQueue
 type ChannelMessageQueue struct {
-	channelPool sync.Map
+	queuePool sync.Map
 }
 
 // NewChannelMessageQueue initializes a new ChannelMessageQueue
@@ -89,34 +90,35 @@ func (q *ChannelMessageQueue) DispatchMessage() {
 			klog.Warning("node id is not found in the message")
 			continue
 		}
-		rChannel, err := q.getRChannel(nodeID)
+		nodeQueue, err := q.getNodeQueue(nodeID)
 		if err != nil {
 			klog.Infof("fail to get dispatch channel for %s", nodeID)
 			continue
 		}
-		rChannel <- msg
+		nodeQueue.Add()
 	}
 }
 
-func (q *ChannelMessageQueue) getRChannel(nodeID string) (chan beehiveModel.Message, error) {
-	channels, ok := q.channelPool.Load(nodeID)
+func (q *ChannelMessageQueue) getNodeQueue(nodeID string) (workqueue.RateLimitingInterface, error) {
+	queue, ok := q.queuePool.Load(nodeID)
 	if !ok {
 		klog.Errorf("rChannel for edge node %s is removed", nodeID)
 		return nil, fmt.Errorf("rChannel not found")
 	}
-	rChannel := channels.(chan beehiveModel.Message)
-	return rChannel, nil
+	nodeQueue := queue.(workqueue.RateLimitingInterface)
+	return nodeQueue, nil
 }
 
 // Connect allocates rChannel for given project and group
 func (q *ChannelMessageQueue) Connect(info *model.HubInfo) error {
-	_, ok := q.channelPool.Load(info.NodeID)
+	_, ok := q.queuePool.Load(info.NodeID)
 	if ok {
 		return fmt.Errorf("edge node %s is already connected", info.NodeID)
 	}
-	// allocate a new rchannel with default buffer size
-	rChannel := make(chan beehiveModel.Message, rChanBufSize)
-	_, ok = q.channelPool.LoadOrStore(info.NodeID, rChannel)
+
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), info.NodeID)
+	_, ok = q.queuePool.LoadOrStore(info.NodeID, queue)
+
 	if ok {
 		// rchannel is already allocated
 		return fmt.Errorf("edge node %s is already connected", info.NodeID)
