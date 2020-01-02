@@ -2,15 +2,20 @@ package channelq
 
 import (
 	"fmt"
+	"github.com/kubeedge/kubeedge/common/constants"
 	"k8s.io/client-go/util/workqueue"
 	"strings"
 	"sync"
 
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	beehiveContext "github.com/kubeedge/beehive/pkg/core/context"
 	beehiveModel "github.com/kubeedge/beehive/pkg/core/model"
 	"github.com/kubeedge/kubeedge/cloud/pkg/cloudhub/common/model"
+	deviceconstants "github.com/kubeedge/kubeedge/cloud/pkg/devicecontroller/constants"
+	edgeconstants "github.com/kubeedge/kubeedge/cloud/pkg/edgecontroller/constants"
+	edgemessagelayer "github.com/kubeedge/kubeedge/cloud/pkg/edgecontroller/messagelayer"
 )
 
 // Read channel buffer size
@@ -53,6 +58,7 @@ func (s *ChannelMessageSet) Get() (*beehiveModel.Message, error) {
 // ChannelMessageQueue is the channel implementation of MessageQueue
 type ChannelMessageQueue struct {
 	queuePool sync.Map
+	storePool sync.Map
 }
 
 // NewChannelMessageQueue initializes a new ChannelMessageQueue
@@ -76,30 +82,55 @@ func (q *ChannelMessageQueue) DispatchMessage() {
 			klog.Info("receive not Message format message")
 			continue
 		}
-		resource := msg.Router.Resource
-		tokens := strings.Split(resource, "/")
-		numOfTokens := len(tokens)
-		var nodeID string
-		for i, token := range tokens {
-			if token == model.ResNode && i+1 < numOfTokens {
-				nodeID = tokens[i+1]
-				break
-			}
-		}
-		if nodeID == "" {
+
+		nodeID,err:=getNodeID(msg)
+		if nodeID == ""||err!=nil {
 			klog.Warning("node id is not found in the message")
 			continue
 		}
-		nodeQueue, err := q.getNodeQueue(nodeID)
+
+		nodeQueue, err := q.GetNodeQueue(nodeID)
+		nodeStore,err:=q.GetNodeStore(nodeID)
 		if err != nil {
 			klog.Infof("fail to get dispatch channel for %s", nodeID)
 			continue
 		}
-		nodeQueue.Add()
+
+		key,_:=getMsgKey(&msg)
+
+		nodeQueue.Add(key)
+		nodeStore.Add(msg)
 	}
 }
 
-func (q *ChannelMessageQueue) getNodeQueue(nodeID string) (workqueue.RateLimitingInterface, error) {
+// getNodeID from "beehive/pkg/core/model".Message.Router.Resource
+func getNodeID(msg beehiveModel.Message) (string, error) {
+	sli := strings.Split(msg.GetResource(), constants.ResourceSep)
+	if len(sli) <= 1 {
+		return "", fmt.Errorf("node id not found")
+	}
+	return sli[1], nil
+}
+
+func getMsgKey(obj interface{})(string,error){
+	msg:=obj.(*beehiveModel.Message)
+
+	if msg.GetGroup()==edgeconstants.GroupResource{
+		resourceType,_:=edgemessagelayer.GetResourceType(*msg)
+		resourceNamespace,_:=edgemessagelayer.GetNamespace(*msg)
+		resourceName,_:=edgemessagelayer.GetResourceName(*msg)
+		return resourceType+"/"+resourceNamespace+"/"+resourceName,nil
+	}
+	if msg.GetGroup()==deviceconstants.GroupTwin{
+		sli:=strings.Split(msg.GetResource(), constants.ResourceSep)
+			resourceType:=sli[len(sli)-2]
+			resourceName:=sli[len(sli)-1]
+			return resourceType+"/"+resourceName,nil
+	}
+	return "",fmt.Errorf("")
+}
+
+func (q *ChannelMessageQueue) GetNodeQueue(nodeID string) (workqueue.RateLimitingInterface, error) {
 	queue, ok := q.queuePool.Load(nodeID)
 	if !ok {
 		klog.Errorf("rChannel for edge node %s is removed", nodeID)
@@ -107,6 +138,16 @@ func (q *ChannelMessageQueue) getNodeQueue(nodeID string) (workqueue.RateLimitin
 	}
 	nodeQueue := queue.(workqueue.RateLimitingInterface)
 	return nodeQueue, nil
+}
+
+func (q *ChannelMessageQueue) GetNodeStore(nodeID string) (cache.Store, error) {
+	store, ok := q.storePool.Load(nodeID)
+	if !ok {
+		klog.Errorf("rChannel for edge node %s is removed", nodeID)
+		return nil, fmt.Errorf("rChannel not found")
+	}
+	nodeStore := store.(cache.Store)
+	return nodeStore, nil
 }
 
 // Connect allocates rChannel for given project and group
@@ -117,8 +158,9 @@ func (q *ChannelMessageQueue) Connect(info *model.HubInfo) error {
 	}
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), info.NodeID)
+	store:=cache.NewStore(getMsgKey)
 	_, ok = q.queuePool.LoadOrStore(info.NodeID, queue)
-
+	_, ok = q.storePool.LoadOrStore(info.NodeID, store)
 	if ok {
 		// rchannel is already allocated
 		return fmt.Errorf("edge node %s is already connected", info.NodeID)
@@ -128,14 +170,14 @@ func (q *ChannelMessageQueue) Connect(info *model.HubInfo) error {
 
 // Close closes rChannel for given project and group
 func (q *ChannelMessageQueue) Close(info *model.HubInfo) error {
-	channels, ok := q.channelPool.Load(info.NodeID)
+	channels, ok := q.queuePool.Load(info.NodeID)
 	if !ok {
 		klog.Warningf("rChannel for edge node %s is already removed", info.NodeID)
 		return nil
 	}
 	rChannel := channels.(chan beehiveModel.Message)
 	close(rChannel)
-	q.channelPool.Delete(info.NodeID)
+	q.queuePool.Delete(info.NodeID)
 	return nil
 }
 
@@ -148,15 +190,6 @@ func (q *ChannelMessageQueue) Publish(msg *beehiveModel.Message) error {
 		beehiveContext.SendToGroup(model.SrcEdgeController, *msg)
 	}
 	return nil
-}
-
-// Consume retrieves message from the rChannel for given project and group
-func (q *ChannelMessageQueue) Consume(info *model.HubInfo) (MessageSet, error) {
-	rChannel, err := q.getRChannel(info.NodeID)
-	if err != nil {
-		return nil, err
-	}
-	return NewChannelMessageSet((<-chan beehiveModel.Message)(rChannel)), nil
 }
 
 // Workload returns the number of queue channels connected to queue

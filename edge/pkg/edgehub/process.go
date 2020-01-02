@@ -114,11 +114,20 @@ func (eh *EdgeHub) routeToEdge() {
 		}
 
 		klog.Infof("received msg from cloud-hub:%+v", message)
+
+		eh.sendAckToCloud(message)
+
 		err = eh.dispatch(message)
 		if err != nil {
 			klog.Errorf("failed to dispatch message, discard: %v", err)
 		}
 	}
+}
+
+func (eh *EdgeHub) sendAckToCloud(message model.Message){
+	ackMsg:=model.NewMessage(message.GetID()).
+		BuildRouter(ModuleNameEdgeHub, "", "", "ack")
+	beehiveContext.Send(eh.Name(),*ackMsg)
 }
 
 func (eh *EdgeHub) sendToCloud(message model.Message) error {

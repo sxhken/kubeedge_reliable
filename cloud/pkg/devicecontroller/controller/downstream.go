@@ -341,7 +341,7 @@ func (dc *DownstreamController) deviceAdded(device *v1alpha1.Device) {
 		edgeDevice := createDevice(device)
 		msg := model.NewMessage("")
 
-		resource, err := messagelayer.BuildResource(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values[0], "membership", "")
+		resource, err := messagelayer.BuildResource(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values[0], "membership", device.Name)
 		if err != nil {
 			klog.Warningf("Built message resource failed with error: %s", err)
 			return
@@ -545,7 +545,7 @@ func (dc *DownstreamController) deviceUpdated(device *v1alpha1.Device) {
 				addDeletedTwins(cachedDevice.Status.Twins, device.Status.Twins, twin, device.ResourceVersion)
 				msg := model.NewMessage("")
 
-				resource, err := messagelayer.BuildResource(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values[0], "device/"+device.Name+"/twin/cloud_updated", "")
+				resource, err := messagelayer.BuildResource(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values[0], "device/"+device.Name+"/twin/cloud_updated", device.Name)
 				if err != nil {
 					klog.Warningf("Built message resource failed with error: %s", err)
 					return
@@ -771,7 +771,7 @@ func (dc *DownstreamController) deviceDeleted(device *v1alpha1.Device) {
 	msg := model.NewMessage("")
 
 	if len(device.Spec.NodeSelector.NodeSelectorTerms) != 0 && len(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions) != 0 && len(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values) != 0 {
-		resource, err := messagelayer.BuildResource(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values[0], "membership", "")
+		resource, err := messagelayer.BuildResource(device.Spec.NodeSelector.NodeSelectorTerms[0].MatchExpressions[0].Values[0], "membership", device.Name)
 		msg.BuildRouter(constants.DeviceControllerModuleName, constants.GroupTwin, resource, model.UpdateOperation)
 
 		content := types.MembershipUpdate{RemoveDevices: []types.Device{

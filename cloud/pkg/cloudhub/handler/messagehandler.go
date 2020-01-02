@@ -51,6 +51,7 @@ type MessageHandle struct {
 	Handlers          []HandleFunc
 	NodeLimit         int
 	KeepaliveChannel  map[string]chan struct{}
+	MessageAckChannel map[string]chan struct{}
 }
 
 type HandleFunc func(hi hubio.CloudHubIO, info *model.HubInfo, stop chan ExitCode)
@@ -101,6 +102,13 @@ func (mh *MessageHandle) HandleServer(container *mux.MessageContainer, writer mu
 	// handle the reponse from edge
 	if VolumeRegExp.MatchString(container.Message.GetResource()) {
 		beehiveContext.SendResp(*container.Message)
+		return
+	}
+
+	if container.Message.Router.Operation== "ack"{
+		if ackChan,ok:=mh.MessageAckChannel[container.Message.Header.ParentID];ok{
+			close(ackChan)
+		}
 		return
 	}
 
@@ -304,52 +312,68 @@ func (mh *MessageHandle) GetWorkload() (float64, error) {
 
 // MessageWriteLoop processes all write requests
 func (mh *MessageHandle) MessageWriteLoop(hi hubio.CloudHubIO, info *model.HubInfo, stop chan ExitCode) {
-	messages, err := mh.MessageQueue.Consume(info)
+	nodeQueue, err := mh.MessageQueue.GetNodeQueue(info.NodeID)
 	if err != nil {
-		klog.Errorf("failed to consume event for node %s, reason: %s", info.NodeID, err.Error())
-		stop <- messageQueueDisconnect
-		return
 	}
+	nodeStore, err := mh.MessageQueue.GetNodeStore(info.NodeID)
+
 	for {
-		msg, err := messages.Get()
+		key,_:=nodeQueue.Get()
+		obj,_,_:=nodeStore.GetByKey(key.(string))
+
+		msg:=obj.(beehiveModel.Message)
 		if err != nil {
 			klog.Errorf("failed to consume event for node %s, reason: %s", info.NodeID, err.Error())
-			if err.Error() == MsgFormatError {
-				// error format message should not impact other message
-				messages.Ack()
-				continue
-			}
 			stop <- messageQueueDisconnect
 			return
 		}
 
-		if model.IsNodeStopped(msg) {
+		if model.IsNodeStopped(&msg) {
 			klog.Infof("node %s is stopped, will disconnect", info.NodeID)
-			messages.Ack()
 			stop <- nodeStop
 			return
 		}
-		if !model.IsToEdge(msg) {
+		if !model.IsToEdge(&msg) {
 			klog.Infof("skip only to cloud event for node %s, %s, content %s", info.NodeID, dumpMessageMetadata(msg), msg.Content)
-			messages.Ack()
 			continue
 		}
 		klog.Infof("event to send for node %s, %s, content %s", info.NodeID, dumpMessageMetadata(msg), msg.Content)
 
-		trimMessage(msg)
+		trimMessage(&msg)
 		err = hi.SetWriteDeadline(time.Now().Add(time.Duration(mh.WriteTimeout) * time.Second))
 		if err != nil {
 			klog.Errorf("SetWriteDeadline error, %s", err.Error())
 			stop <- hubioWriteFail
 			return
 		}
-		err = mh.hubIoWrite(hi, info.NodeID, msg)
-		if err != nil {
-			klog.Errorf("write error, connection for node %s will be closed, affected event %s, reason %s",
-				info.NodeID, dumpMessageMetadata(msg), err.Error())
-			stop <- hubioWriteFail
-			return
+
+		mh.sendMsg(hi,info,&msg)
+		nodeQueue.Done(key)
+	}
+}
+
+func (mh *MessageHandle)sendMsg(hi hubio.CloudHubIO, info *model.HubInfo,msg *beehiveModel.Message){
+	mh.MessageAckChannel[msg.GetID()]=make(chan struct{})
+	LOOP:
+	for {
+		mh.send(hi,info,msg)
+		ticker := time.NewTimer(time.Second * 1)
+		select {
+			case <- mh.MessageAckChannel[msg.GetID()]:
+				delete(mh.MessageAckChannel,msg.GetID())
+				break LOOP
+			case <-ticker.C:
+				mh.send(hi,info,msg)
+				ticker.Reset(time.Second * 1)
 		}
-		messages.Ack()
+	}
+}
+
+func (mh *MessageHandle)send(hi hubio.CloudHubIO, info *model.HubInfo,msg *beehiveModel.Message){
+	err := mh.hubIoWrite(hi, info.NodeID, msg)
+	if err != nil {
+		klog.Errorf("write error, connection for node %s will be closed, affected event %s, reason %s",
+			info.NodeID, dumpMessageMetadata(msg), err.Error())
+		return
 	}
 }
